@@ -14,20 +14,23 @@ export function DropZone() {
     const handleUploads = async () => {
       setIsUploading(true);
       for (const file of acceptedFiles) {
+        const toastId = toast.loading(`Uploading ${file.name}...`, {
+          style: { background: "#121212", color: "#fff", border: "1px solid #FF6B00" },
+        });
+
         try {
-          const response = await fetch("/api/upload/pre-signed", {
+          const formData = new FormData();
+          formData.append("file", file);
+
+          const response = await fetch("/api/upload/vercel", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ fileName: file.name, fileType: file.type }),
+            body: formData,
           });
           
+          if (!response.ok) throw new Error("Upload failed");
+          
           const data = await response.json();
-          const { uploadUrl } = data;
-
-          await fetch(uploadUrl, {
-            method: "POST",
-            body: file,
-          });
+          const { url } = data;
 
           let category: FileCategory = "other";
           if (file.type.startsWith("video/")) category = "video";
@@ -41,16 +44,18 @@ export function DropZone() {
             type: file.type,
             category,
             uploadDate: Date.now(),
-            url: URL.createObjectURL(file),
+            url: url, // Use the real Vercel Blob URL
           };
 
           addFile(newFile);
-          toast.success(`${file.name} uploaded`, {
-            style: { background: "#00BFA5", color: "#fff", border: "none" },
+          toast.success(`${file.name} deployed to hub`, {
+            id: toastId,
+            style: { background: "#FF6B00", color: "#fff", border: "none" },
           });
         } catch (error) {
-          toast.error("Upload failed", {
-            description: "Connection to terminal lost during transfer.",
+          toast.error(`Transfer interrupted: ${file.name}`, {
+            id: toastId,
+            description: "Connection to terminal lost or token invalid.",
             style: { background: "#ff4444", color: "#fff", border: "none" },
           });
         }
